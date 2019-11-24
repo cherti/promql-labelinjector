@@ -32,74 +32,58 @@ func modifyQuery(e string) string {
 	}
 	// closure is actually unnecessary, but logic consistent with PromAuthProxy
 	// as the code originated there
-	promql.Inspect(expr, rewriteLabelsets)
+	promql.Inspect(expr, rewriteNodeLabels)
 	return expr.String()
 }
 
-// rewriteLabelsets returns the function that will be used to walk the
-// Prometheus-query-expression-tree and rewrites the necessary selectors with
-// to the specified username before the query is handed over to Prometheus.
-func rewriteLabelsets(n promql.Node, path []promql.Node) error {
-
+// rewiteLabelset tasek a set of labelmatchers and ensures the injection target label is
+// present in them in the desired form. It returns the labelset where this is ensured.
+func rewriteLabelset(labelMatchers []*labels.Matcher) []*labels.Matcher {
 	// decide on matcher-type
 	matcherType := labels.MatchEqual
 	if *neqExpr {
 		matcherType = labels.MatchNotEqual
 	}
 
+	// check if label is already present, replace in this case
+	found := false
+	for i, l := range labelMatchers {
+		if l.Name == *injectTarget {
+			if l.Type == matcherType {
+				l.Value = *injectValue
+				found = true
+			} else { // drop matcher if not of matcherType
+				if len(labelMatchers) == i {
+					labelMatchers = labelMatchers[:i]
+				} else {
+					labelMatchers = append(labelMatchers[:i], labelMatchers[i+1:]...)
+				}
+			}
+		}
+	}
+
+	// if label is not present, inject it
+	if !found {
+		joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
+		if err != nil {
+			//handle
+		}
+		labelMatchers = append(labelMatchers, joblabel)
+
+	}
+
+	return labelMatchers
+}
+
+// rewriteNodeLabels returns the function that will be used to walk the
+// Prometheus-query-expression-tree and rewrites the necessary selectors with
+// to the specified username before the query is handed over to Prometheus.
+func rewriteNodeLabels(n promql.Node, path []promql.Node) error {
 	switch n := n.(type) {
 	case *promql.VectorSelector:
-		// check if label is already present, replace in this case
-		found := false
-		for i, l := range n.LabelMatchers {
-			if l.Name == *injectTarget {
-				if l.Type == matcherType {
-					l.Value = *injectValue
-					found = true
-				} else { // drop matcher if not of matcherType
-					if len(n.LabelMatchers) == i {
-						n.LabelMatchers = n.LabelMatchers[:i]
-					} else {
-						n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
-					}
-				}
-			}
-		}
-
-		// if label is not present, inject it
-		if !found {
-			joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
-			if err != nil {
-				//handle
-			}
-			n.LabelMatchers = append(n.LabelMatchers, joblabel)
-
-		}
+		n.LabelMatchers = rewriteLabelset(n.LabelMatchers)
 	case *promql.MatrixSelector:
-		// check if label is already present, replace in this case
-		found := false
-		for i, l := range n.LabelMatchers {
-			if l.Name == *injectTarget {
-				if l.Type == matcherType {
-					l.Value = *injectValue
-					found = true
-				} else { // drop matcher if not of matcherType
-					if len(n.LabelMatchers) == i {
-						n.LabelMatchers = n.LabelMatchers[:i]
-					} else {
-						n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
-					}
-				}
-			}
-		}
-		// if label is not present, inject it
-		if !found {
-			joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
-			if err != nil {
-				//handle
-			}
-			n.LabelMatchers = append(n.LabelMatchers, joblabel) // this doesn't compile with compiler error
-		}
+		n.LabelMatchers = rewriteLabelset(n.LabelMatchers)
 	}
 	return nil
 }
