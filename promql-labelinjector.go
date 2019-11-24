@@ -48,9 +48,13 @@ func rewriteLabelsets(n promql.Node, path []promql.Node) error {
 				if l.Name == *injectTarget {
 					l.Value = *injectValue
 					found = true
+				} else { // drop matcher if not of matcherType
+					if len(n.LabelMatchers) == i {
+						n.LabelMatchers = n.LabelMatchers[:i]
+					} else {
+						n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
+					}
 				}
-			} else { // drop matcher if not MatchEqual
-				n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
 			}
 		}
 
@@ -71,9 +75,13 @@ func rewriteLabelsets(n promql.Node, path []promql.Node) error {
 				if l.Name == *injectTarget {
 					l.Value = *injectValue
 					found = true
+				} else { // drop matcher if not of matcherType
+					if len(n.LabelMatchers) == i {
+						n.LabelMatchers = n.LabelMatchers[:i]
+					} else {
+						n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
+					}
 				}
-			} else { // drop matcher if not MatchEqual
-				n.LabelMatchers = append(n.LabelMatchers[:i], n.LabelMatchers[i+1:]...)
 			}
 		}
 		// if label is not present, inject it
