@@ -20,6 +20,7 @@ var (
 	injectTarget = flag.String("l", "job", "label to inject or overwrite")
 	injectValue  = flag.String("v", "prometheus", "value to write to target-label")
 	expression   = flag.String("e", "", "expression to inject into")
+	neqExpr      = flag.Bool("n", false, "inject with != instead of =")
 )
 
 // modifyQuery modifies a given Prometheus-query-expression to contain the required
@@ -39,13 +40,20 @@ func modifyQuery(e string) string {
 // Prometheus-query-expression-tree and rewrites the necessary selectors with
 // to the specified username before the query is handed over to Prometheus.
 func rewriteLabelsets(n promql.Node, path []promql.Node) error {
+
+	// decide on matcher-type
+	matcherType := labels.MatchEqual
+	if *neqExpr {
+		matcherType = labels.MatchNotEqual
+	}
+
 	switch n := n.(type) {
 	case *promql.VectorSelector:
 		// check if label is already present, replace in this case
 		found := false
 		for i, l := range n.LabelMatchers {
-			if l.Type == labels.MatchEqual {
-				if l.Name == *injectTarget {
+			if l.Name == *injectTarget {
+				if l.Type == matcherType {
 					l.Value = *injectValue
 					found = true
 				} else { // drop matcher if not of matcherType
@@ -60,7 +68,7 @@ func rewriteLabelsets(n promql.Node, path []promql.Node) error {
 
 		// if label is not present, inject it
 		if !found {
-			joblabel, err := labels.NewMatcher(labels.MatchEqual, *injectTarget, *injectValue)
+			joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
 			if err != nil {
 				//handle
 			}
@@ -71,8 +79,8 @@ func rewriteLabelsets(n promql.Node, path []promql.Node) error {
 		// check if label is already present, replace in this case
 		found := false
 		for i, l := range n.LabelMatchers {
-			if l.Type == labels.MatchEqual {
-				if l.Name == *injectTarget {
+			if l.Name == *injectTarget {
+				if l.Type == matcherType {
 					l.Value = *injectValue
 					found = true
 				} else { // drop matcher if not of matcherType
@@ -86,7 +94,7 @@ func rewriteLabelsets(n promql.Node, path []promql.Node) error {
 		}
 		// if label is not present, inject it
 		if !found {
-			joblabel, err := labels.NewMatcher(labels.MatchEqual, *injectTarget, *injectValue)
+			joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
 			if err != nil {
 				//handle
 			}
