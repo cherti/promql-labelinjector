@@ -20,7 +20,7 @@ var (
 	injectTarget = flag.String("l", "job", "label to inject or overwrite")
 	injectValue  = flag.String("v", "prometheus", "value to write to target-label")
 	expression   = flag.String("e", "", "expression to inject into")
-	neqExpr      = flag.Bool("neq", false, "inject with != instead of =")
+	neqExpr      = flag.Bool("neq", false, "inject not-equal-matcher instead of equal-matcher")
 )
 
 // modifyQuery modifies a given Prometheus-query-expression to contain the required
