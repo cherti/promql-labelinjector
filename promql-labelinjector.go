@@ -66,7 +66,7 @@ func rewriteLabelset(labelMatchers []*labels.Matcher) []*labels.Matcher {
 	if !found {
 		joblabel, err := labels.NewMatcher(matcherType, *injectTarget, *injectValue)
 		if err != nil {
-			//handle
+			log.Fatal("ERROR, unable to create matcher:", err)
 		}
 		labelMatchers = append(labelMatchers, joblabel)
 
